@@ -1,0 +1,44 @@
+image: docker:latest
+
+.init_ssh: &init_ssh |
+  which ssh-agent || ( apk --update --no-cache add openssh git curl rsync)
+  eval "$(ssh-agent -s)"
+  echo "$EC2_KEY" | ssh-add -
+  mkdir -p ~/.ssh
+  echo "$EC2_KEY" > $HOME/.ssh/id_rsa
+  echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > $HOME/.ssh/config
+
+stages:
+  - build
+  - deploy
+
+image-creation:
+  stage: build
+  services:
+      - docker:dind
+  variables:
+        DOCKER_HOST: tcp://13.229.207.216:2375
+        DOCKER_DRIVER: overlay2
+        DOCKER_TLS_CERTDIR: ""
+        GIT_SSL_NO_VERIFY: "1"
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $DOCKER_CI_TOKEN registry.gitlab.com
+    - docker build -t $CI_REGISTRY:latest .
+    - docker push $CI_REGISTRY:latest
+  only:
+    - /-releases$/
+
+deploy_ec2:
+  stage: deploy
+  variables:
+        DOCKER_HOST: tcp://13.229.207.216:2375
+        DOCKER_DRIVER: overlay2
+        DOCKER_TLS_CERTDIR: ""
+        GIT_SSL_NO_VERIFY: "1"
+  when: manual
+  only:
+    - /-releases$/
+  script:
+    - *init_ssh
+    - ssh -i $HOME/.ssh/id_rsa $EC2_USER@$EC2_IP ls
+    - ssh -i $HOME/.ssh/id_rsa $EC2_USER@$EC2_IP "docker login -u $CI_REGISTRY_USER -p $DOCKER_CI_TOKEN registry.gitlab.com;docker stop gitlabci-test; docker rm gitlabci-test; docker rmi -f "$(docker images -aq)"; docker pull ${CI_REGISTRY}; docker run --name gitlabci-test -d -p 80:80 ${CI_REGISTRY};"
