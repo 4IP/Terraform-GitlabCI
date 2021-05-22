@@ -16,4 +16,4 @@ HCL (Terraform) script and GitlabCI yaml
 # 2. Gitlab CI
 * <p>The example script to build dockerfile with gitlabci, then push into gitlab registry. The script is simple to deploy nginx into docker and run</p>
 
-    *note: but this script still there an error because won't running into docker if one machine with gitlab-runner, i can't try to test this script because i have a work deadlines*
+    *note: but this script still won't running into docker if one machine with gitlab-runner, i can't try to test this script because i have a work deadlines. I mean can test separate with gitlab-runner and then target machine(docker)*
